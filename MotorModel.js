@@ -5,9 +5,9 @@ class MotorParameters {
   magnetFlux = 1.25;
   polePairs = 1;
 
-  inertia = 0.006;
+  inertia = 0.1;
   viscousFriction = 0.0015;
-  coulombFriction = 0.055;
+  coulombFriction = 0.155;
   frictionSmoothingSpeed = 0.8;
 
   maximumVoltage = 311.0;

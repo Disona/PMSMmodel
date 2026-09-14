@@ -266,14 +266,24 @@ class MotorView {
 
   drawElectricalVectors(state) {
     if (this.settings.mode == MODE_MANUAL) {
-      this.drawPhysicalVector(this.settings.manualCurrentAlpha, this.settings.manualCurrentBeta,
-        this.parameters.maximumCurrent, this.currentVectorMaximumLength(),
-        color(73, 220, 232, 90), "i*");
+      if (this.settings.manualVectorType == MANUAL_VECTOR_CURRENT) {
+        this.drawPhysicalVector(this.settings.manualCurrentAlpha, this.settings.manualCurrentBeta,
+          this.parameters.maximumCurrent, this.currentVectorMaximumLength(),
+          color(73, 220, 232, 90), "i*");
+      } else {
+        this.drawPhysicalVector(this.settings.manualVoltageAlpha, this.settings.manualVoltageBeta,
+          MANUAL_MAXIMUM_VOLTAGE, this.statorInnerRadius * 0.91,
+          color(247, 205, 74, 105), "u*");
+      }
     }
     this.drawPhysicalVector(state.currentAlpha, state.currentBeta, this.parameters.maximumCurrent,
       this.currentVectorMaximumLength(), color(73, 220, 232), "i");
     if (this.settings.showVoltage) {
-      this.drawPhysicalVector(state.voltageAlpha, state.voltageBeta, this.parameters.maximumVoltage,
+      let voltageScaleMaximum = this.settings.mode == MODE_MANUAL
+          && this.settings.manualVectorType == MANUAL_VECTOR_VOLTAGE
+        ? MANUAL_MAXIMUM_VOLTAGE
+        : this.parameters.maximumVoltage;
+      this.drawPhysicalVector(state.voltageAlpha, state.voltageBeta, voltageScaleMaximum,
         this.statorInnerRadius * 0.91, color(247, 205, 74), "u");
     }
     if (this.settings.showEmf) {
@@ -474,30 +484,45 @@ class MotorView {
     this.updateGeometry(area);
     if (this.settings.mode != MODE_MANUAL) return;
     let distance = dist(px, py, this.centerX, this.centerY);
-    if (distance <= this.currentVectorMaximumLength()) {
+    if (distance <= this.manualVectorMaximumLength()) {
       this.manualDragging = true;
-      this.updateManualCurrent(px, py, controller);
+      this.updateManualVector(px, py, controller);
     }
   }
 
   mouseDragged(px, py, area, controller) {
     if (!this.manualDragging || this.settings.mode != MODE_MANUAL) return;
     this.updateGeometry(area);
-    this.updateManualCurrent(px, py, controller);
+    this.updateManualVector(px, py, controller);
   }
 
   mouseReleased() {
     this.manualDragging = false;
   }
 
-  updateManualCurrent(px, py, controller) {
+  manualVectorMaximumLength() {
+    return this.settings.manualVectorType == MANUAL_VECTOR_CURRENT
+      ? this.currentVectorMaximumLength()
+      : this.statorInnerRadius * 0.91;
+  }
+
+  updateManualVector(px, py, controller) {
     let dx = px - this.centerX;
     let dy = this.centerY - py;
     let distance = sqrt(dx * dx + dy * dy);
-    let magnitude = constrain(distance / this.currentVectorMaximumLength(), 0.0, 1.0)
-      * this.parameters.maximumCurrent;
+    let maximumLength = this.manualVectorMaximumLength();
+    let maximumMagnitude = this.settings.manualVectorType == MANUAL_VECTOR_CURRENT
+      ? this.parameters.maximumCurrent
+      : MANUAL_MAXIMUM_VOLTAGE;
+    let magnitude = constrain(distance / maximumLength, 0.0, 1.0) * maximumMagnitude;
     let screenVectorAngle = atan2(dy, dx);
     let physicalAngle = screenVectorAngle + this.viewRotation;
-    controller.setManualCurrent(magnitude * cos(physicalAngle), magnitude * sin(physicalAngle));
+    let alpha = magnitude * cos(physicalAngle);
+    let beta = magnitude * sin(physicalAngle);
+    if (this.settings.manualVectorType == MANUAL_VECTOR_CURRENT) {
+      controller.setManualCurrent(alpha, beta);
+    } else {
+      controller.setManualVoltage(alpha, beta);
+    }
   }
 }

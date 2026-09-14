@@ -5,6 +5,7 @@ function runSimulationDiagnostics() {
   console.log("=== PMSM simulation diagnostics ===");
   testCoordinateTransform();
   testManualCurrentStep();
+  testManualVoltageCommand();
   testManualBackEmfCompensation();
   testVectorCurrentStep();
   testSpeedLoopStep();
@@ -47,6 +48,25 @@ function testManualCurrentStep() {
   runDiagnosticSteps(testMotor, testController, testSettings, 250);
   diagnosticNear("Manual alpha current step", testMotor.state.currentAlpha, 10.0, 0.05);
   diagnosticNear("Manual beta cross error", testMotor.state.currentBeta, 0.0, 0.02);
+}
+
+function testManualVoltageCommand() {
+  let testParameters = new MotorParameters();
+  let testSettings = new ControlSettings(testParameters);
+  let testMotor = new PMSMModel(testParameters);
+  let testController = new DriveController(testParameters, testSettings);
+  testSettings.mode = MODE_MANUAL;
+  testController.setManualVectorType(MANUAL_VECTOR_VOLTAGE);
+  testController.setManualVoltage(12.0, -6.0);
+
+  testController.update(testMotor.state, 0.0001);
+  diagnosticNear("Manual voltage alpha command", testController.voltageCommand.x, 12.0, 0.0001);
+  diagnosticNear("Manual voltage beta command", testController.voltageCommand.y, -6.0, 0.0001);
+
+  testController.setManualVoltage(400.0, 300.0);
+  testController.update(testMotor.state, 0.0001);
+  diagnosticNear("Manual voltage vector limit", testController.voltageCommand.magnitude(),
+    MANUAL_MAXIMUM_VOLTAGE, 0.0001);
 }
 
 function testManualBackEmfCompensation() {
@@ -158,6 +178,9 @@ function testGuiParameterReset() {
   let testParameters = new MotorParameters();
   let testSettings = new ControlSettings(testParameters);
   testSettings.mode = MODE_VECTOR;
+  testSettings.manualVectorType = MANUAL_VECTOR_VOLTAGE;
+  testSettings.manualVoltageAlpha = 123.0;
+  testSettings.manualVoltageBeta = -45.0;
   testSettings.loadTorque = 17.0;
   testSettings.openLoopVoltage = 200.0;
   testSettings.openLoopFrequency = 42.0;
@@ -173,12 +196,15 @@ function testGuiParameterReset() {
   diagnosticNear("Reset restores open-loop frequency", testSettings.openLoopFrequency, 0.0, 0.0001);
   diagnosticNear("Reset restores current Kp", testSettings.currentKp, 4.0, 0.0001);
   diagnosticNear("Reset restores speed reference", testSettings.speedReferenceRpm, 0.0, 0.0001);
+  diagnosticNear("Reset clears manual voltage alpha", testSettings.manualVoltageAlpha, 0.0, 0.0001);
+  diagnosticNear("Reset clears manual voltage beta", testSettings.manualVoltageBeta, 0.0, 0.0001);
   if (testSettings.mode == MODE_VECTOR && !testSettings.speedLoopEnabled
+      && testSettings.manualVectorType == MANUAL_VECTOR_VOLTAGE
       && testSettings.showVoltage && !testSettings.lockDqFrame) {
-    console.log("PASS: Reset preserves mode and restores checkboxes");
+    console.log("PASS: Reset preserves control selections and restores checkboxes");
   } else {
     diagnosticFailures++;
-    console.log("FAIL: Reset mode/checkbox behavior");
+    console.log("FAIL: Reset control-selection/checkbox behavior");
   }
 }
 

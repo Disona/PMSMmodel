@@ -203,6 +203,10 @@ class ControlPanel {
   modeButtonHeight;
   actionButtonY;
   actionButtonWidth;
+  manualVectorButtonsX;
+  manualVectorButtonsY;
+  manualVectorButtonWidth;
+  manualVectorButtonHeight;
 
   constructor(parameters, settings, controller) {
     this.parameters = parameters;
@@ -303,6 +307,20 @@ class ControlPanel {
     this.speedKiSlider.visible = this.settings.mode == MODE_VECTOR && this.speedLoopCheckbox.checked;
 
     if (this.settings.mode == MODE_MANUAL) {
+      fill(145, 159, 180);
+      textAlign(LEFT, TOP);
+      textSize(11.5 * this.uiScale * PANEL_FONT_SCALE);
+      text("РУЧНОЕ ЗАДАНИЕ", contentX, y);
+      y += 19.0 * this.uiScale;
+
+      this.manualVectorButtonsX = contentX;
+      this.manualVectorButtonsY = y;
+      this.manualVectorButtonHeight = 30.0 * this.uiScale;
+      this.manualVectorButtonWidth = (contentWidth - 5.0 * this.uiScale) * 0.5;
+      this.drawManualVectorButton(MANUAL_VECTOR_CURRENT, "Вектор тока");
+      this.drawManualVectorButton(MANUAL_VECTOR_VOLTAGE, "Вектор напряжения");
+      y += this.manualVectorButtonHeight + 9.0 * this.uiScale;
+
       this.drawManualHint(contentX, y, contentWidth, 48.0 * this.uiScale);
       y += 58.0 * this.uiScale;
     } else if (this.settings.mode == MODE_OPEN_LOOP) {
@@ -373,6 +391,21 @@ class ControlPanel {
     text(label, x + this.modeButtonWidth * 0.5, this.modeButtonsY + this.modeButtonHeight * 0.48);
   }
 
+  drawManualVectorButton(vectorType, label) {
+    let x = this.manualVectorButtonsX
+      + vectorType * (this.manualVectorButtonWidth + 5.0 * this.uiScale);
+    let selected = this.settings.manualVectorType == vectorType;
+    noStroke();
+    fill(selected ? color(49, 142, 178) : color(38, 46, 60));
+    rect(x, this.manualVectorButtonsY, this.manualVectorButtonWidth,
+      this.manualVectorButtonHeight, 5.0 * this.uiScale);
+    fill(selected ? color(247) : color(180, 192, 210));
+    textAlign(CENTER, CENTER);
+    textSize(11.0 * this.uiScale * PANEL_FONT_SCALE);
+    text(label, x + this.manualVectorButtonWidth * 0.5,
+      this.manualVectorButtonsY + this.manualVectorButtonHeight * 0.48);
+  }
+
   drawStatusCard(x, y, w, h, state,
                       simulator) {
     noStroke();
@@ -411,7 +444,10 @@ class ControlPanel {
     fill(155, 207, 226);
     textAlign(LEFT, CENTER);
     textSize(11.5 * this.uiScale * PANEL_FONT_SCALE);
-    text("Нажмите и тяните мышь внутри статора,\nчтобы задать вектор тока.",
+    let vectorName = this.settings.manualVectorType == MANUAL_VECTOR_CURRENT
+      ? "тока — регуляторы поддерживают i*"
+      : "напряжения — u* подаётся напрямую";
+    text("Нажмите и тяните мышь внутри статора,\nчтобы задать вектор " + vectorName + ".",
       x + 11.0 * this.uiScale, y + h * 0.5);
   }
 
@@ -435,6 +471,19 @@ class ControlPanel {
         this.controller.setMode(i, motor.state);
         this.applyWidgetValues();
         return true;
+      }
+    }
+
+    if (this.settings.mode == MODE_MANUAL
+        && py >= this.manualVectorButtonsY
+        && py <= this.manualVectorButtonsY + this.manualVectorButtonHeight) {
+      for (let vectorType = 0; vectorType < 2; vectorType++) {
+        let x = this.manualVectorButtonsX
+          + vectorType * (this.manualVectorButtonWidth + 5.0 * this.uiScale);
+        if (px >= x && px <= x + this.manualVectorButtonWidth) {
+          this.controller.setManualVectorType(vectorType);
+          return true;
+        }
       }
     }
 

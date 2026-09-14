@@ -2,12 +2,19 @@ const MODE_MANUAL = 0;
 const MODE_OPEN_LOOP = 1;
 const MODE_VECTOR = 2;
 
+const MANUAL_VECTOR_CURRENT = 0;
+const MANUAL_VECTOR_VOLTAGE = 1;
+const MANUAL_MAXIMUM_VOLTAGE = 15.0;
+
 class ControlSettings {
   mode = MODE_MANUAL;
   loadTorque = 0.0;
 
   manualCurrentAlpha = 0.0;
   manualCurrentBeta = 0.0;
+  manualVoltageAlpha = 0.0;
+  manualVoltageBeta = 0.0;
+  manualVectorType = MANUAL_VECTOR_CURRENT;
   openLoopVoltage = 0.0;
   openLoopFrequency = 0.0;
 
@@ -35,10 +42,13 @@ class ControlSettings {
 
   resetGuiParametersPreservingMode() {
     let preservedMode = this.mode;
+    let preservedManualVectorType = this.manualVectorType;
 
     this.loadTorque = 0.0;
     this.manualCurrentAlpha = 0.0;
     this.manualCurrentBeta = 0.0;
+    this.manualVoltageAlpha = 0.0;
+    this.manualVoltageBeta = 0.0;
     this.openLoopVoltage = 0.0;
     this.openLoopFrequency = 0.0;
 
@@ -59,6 +69,7 @@ class ControlSettings {
     this.lockDqFrame = false;
 
     this.mode = preservedMode;
+    this.manualVectorType = preservedManualVectorType;
   }
 }
 
@@ -102,16 +113,21 @@ class DriveController {
   currentDReference = 0.0;
   currentQReference = 0.0;
   activeMode = MODE_MANUAL;
+  activeManualVectorType = MANUAL_VECTOR_CURRENT;
 
   constructor(parameters, settings) {
     this.parameters = parameters;
     this.settings = settings;
     this.activeMode = settings.mode;
+    this.activeManualVectorType = settings.manualVectorType;
   }
 
   update(state, timeStep) {
     if (this.settings.mode != this.activeMode) {
       this.changeMode(this.settings.mode, state);
+    }
+    if (this.settings.manualVectorType != this.activeManualVectorType) {
+      this.changeManualVectorType(this.settings.manualVectorType);
     }
 
     if (this.activeMode == MODE_MANUAL) {
@@ -126,6 +142,15 @@ class DriveController {
   updateManualMode(state, timeStep) {
     this.currentDReference = 0.0;
     this.currentQReference = 0.0;
+    if (this.activeManualVectorType == MANUAL_VECTOR_VOLTAGE) {
+      this.voltageCommand.set(
+      this.settings.manualVoltageAlpha,
+      this.settings.manualVoltageBeta,
+      );
+      limitVector(this.voltageCommand, MANUAL_MAXIMUM_VOLTAGE);
+      return;
+    }
+
     let regulatorAlpha = this.manualAlphaController.calculate(
       this.settings.manualCurrentAlpha - state.currentAlpha,
       this.settings.currentKp, this.settings.currentKi, timeStep);
@@ -198,6 +223,7 @@ class DriveController {
   changeMode(newMode, state) {
     this.resetRegulators();
     this.activeMode = newMode;
+    this.activeManualVectorType = this.settings.manualVectorType;
     if (newMode == MODE_OPEN_LOOP) {
       this.openLoopAngle = state.electricalAngle;
     }
@@ -211,6 +237,22 @@ class DriveController {
   setManualCurrent(alpha, beta) {
     this.settings.manualCurrentAlpha = alpha;
     this.settings.manualCurrentBeta = beta;
+  }
+
+  setManualVoltage(alpha, beta) {
+    this.settings.manualVoltageAlpha = alpha;
+    this.settings.manualVoltageBeta = beta;
+  }
+
+  setManualVectorType(vectorType) {
+    this.settings.manualVectorType = vectorType;
+    this.changeManualVectorType(vectorType);
+  }
+
+  changeManualVectorType(vectorType) {
+    this.manualAlphaController.reset();
+    this.manualBetaController.reset();
+    this.activeManualVectorType = vectorType;
   }
 
   resetRegulators() {
@@ -227,8 +269,11 @@ class DriveController {
     this.openLoopAngle = 0.0;
     this.settings.manualCurrentAlpha = 0.0;
     this.settings.manualCurrentBeta = 0.0;
+    this.settings.manualVoltageAlpha = 0.0;
+    this.settings.manualVoltageBeta = 0.0;
     this.currentDReference = 0.0;
     this.currentQReference = 0.0;
     this.activeMode = this.settings.mode;
+    this.activeManualVectorType = this.settings.manualVectorType;
   }
 }
