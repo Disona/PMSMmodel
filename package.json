@@ -1,0 +1,32 @@
+{
+  "name": "pmsm-model-p5js",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Интерактивная модель PMSM на p5.js",
+  "main": "electron/main.js",
+  "build": {
+    "appId": "org.processing.pmsmmodel",
+    "electronLanguages": [],
+    "linux": {
+      "target": ["AppImage"]
+    },
+    "mac": {
+      "target": ["dmg"]
+    },
+    "win": {
+      "target": ["portable"]
+    }
+  },
+  "scripts": {
+    "test": "node tests/run-diagnostics.js",
+    "sketch:start": "electron .",
+    "app:pack": "electron-builder"
+  },
+  "dependencies": {
+    "p5": "2.3.3"
+  },
+  "devDependencies": {
+    "electron": "37.4.0",
+    "electron-builder": "24.6.3"
+  }
+}
